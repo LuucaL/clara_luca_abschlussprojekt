@@ -1,79 +1,69 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
-import math
+from calculation import build_points, build_matrix_4bars, compute_bar_lengths
+from framework import animate_4bar_gif
 
 def main():
-    st.title("Viergelenkkette – Demo")
-    st.write(
-        """
-        Dieses Beispiel zeigt eine stark vereinfachte Darstellung einer Viergelenkkette.
-        Über zwei Slider lässt sich der Winkel am Punkt O2 und der Winkel am Punkt O0 anpassen.
-        """
+    st.title("Ebene Mechanismen - Viergelenk")
+
+    # --- Teil 1: Eingabe / Längenberechnung ---
+    choice = st.radio(
+        "Welche Punkte möchten Sie verwenden?",
+        ("Standardpunkte", "Eigene Eingabe")
     )
 
-    # ------------------------------------
-    # Parameter & Benutzereingaben
-    # ------------------------------------
-    # (Vereinfacht angenommene) Längen
-    L_O2P2 = 30     # Länge vom festen Gelenk O2 zum Knoten P2
-    L_P2P1 = 30     # Länge vom Knoten P2 zum Koppelpunkt P1
-    L_O0P1 = 20     # Länge vom festen Gelenk O0 zum Koppelpunkt P1
+    if choice == "Standardpunkte":
+        points = build_points()
+    else:
+        st.write("Bitte Koordinaten angeben ...")
+        def_x = {"p0x": "0.0", "p0y": "0.0", 
+                 "p1x": "10.0", "p1y": "35.0",
+                 "p2x": "-25.0", "p2y": "10.0",
+                 "p3x": "5.0", "p3y": "-30.0"}
 
-    # Slider für Eingabewinkel in Grad
-    alpha = st.slider("Winkel an O2 (Grad):", 0, 360, 0)
-    beta  = st.slider("Winkel an O0 (Grad):", 0, 360, 60)
+        p0x = st.text_input("p0.x", value=def_x["p0x"])
+        p0y = st.text_input("p0.y", value=def_x["p0y"])
+        p1x = st.text_input("p1.x", value=def_x["p1x"])
+        p1y = st.text_input("p1.y", value=def_x["p1y"])
+        p2x = st.text_input("p2.x", value=def_x["p2x"])
+        p2y = st.text_input("p2.y", value=def_x["p2y"])
+        p3x = st.text_input("p3.x", value=def_x["p3x"])
+        p3y = st.text_input("p3.y", value=def_x["p3y"])
 
-    # Umwandlung in Radianten
-    alpha_rad = np.deg2rad(alpha)
-    beta_rad  = np.deg2rad(beta)
+        def to_float(s):
+            try:
+                return float(s.strip())
+            except ValueError:
+                return 0.0
 
-    # ------------------------------------
-    # Positionen berechnen
-    # ------------------------------------
-    # Festgelegte Punkte (feste Gelenke)
-    O2x, O2y = -30.0, 0.0   # z.B. linkes Gelenk
-    O0x, O0y =  0.0, 0.0    # z.B. rechtes Gelenk
+        points = {
+            "p0": np.array([to_float(p0x), to_float(p0y)]),
+            "p1": np.array([to_float(p1x), to_float(p1y)]),
+            "p2": np.array([to_float(p2x), to_float(p2y)]),
+            "p3": np.array([to_float(p3x), to_float(p3y)]),
+        }
 
-    # Knoten P2 (je nach Winkel alpha)
-    P2x = O2x + L_O2P2 * math.cos(alpha_rad)
-    P2y = O2y + L_O2P2 * math.sin(alpha_rad)
+    st.write("---")
+    if st.button("Stablängen berechnen"):
+        x = np.array([
+            points["p0"][0], points["p0"][1],
+            points["p1"][0], points["p1"][1],
+            points["p2"][0], points["p2"][1],
+            points["p3"][0], points["p3"][1],
+        ])
+        A = build_matrix_4bars()
+        lengths = compute_bar_lengths(A, x)
 
-    # Koppelpunkt P1 (hier stark vereinfacht: eigener Winkel beta statt 
-    # aus Kinematikgleichungen berechnet)
-    P1x = O0x + L_O0P1 * math.cos(beta_rad)
-    P1y = O0y + L_O0P1 * math.sin(beta_rad)
+        st.write("**Stablängen**:")
+        for i, L in enumerate(lengths, start=1):
+            st.write(f"Stab {i}: {L:.4f}")
 
-    # ------------------------------------
-    # Plot erstellen
-    # ------------------------------------
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal', adjustable='datalim')  # gleicher Maßstab auf x- und y-Achse
+    # --- Teil 2: Simulation starten ---
+    st.write("---")
+    if st.button("Simulation starten"):
+        gif_buffer = animate_4bar_gif(points)   # Punkte als Argument
+        st.image(gif_buffer, caption="Animiertes Viergelenk")
 
-    # Kreis um O2 (zeigt mögliche Positionen von P2)
-    circle = plt.Circle((O2x, O2y), L_O2P2, color='red', fill=False, linestyle='--')
-    ax.add_patch(circle)
-
-    # Punkte zeichnen
-    ax.plot([O2x], [O2y], 'ro', label="O2")
-    ax.plot([O0x], [O0y], 'ro', label="O0")
-    ax.plot([P2x], [P2y], 'ro', label="P2")
-    ax.plot([P1x], [P1y], 'ro', label="P1")
-
-    # Verbindende Stäbe/Gelenke (Linien)
-    ax.plot([O2x, P2x], [O2y, P2y], 'r-', label="Glied O2–P2")
-    ax.plot([P2x, P1x], [P2y, P1y], 'g-', label="Koppelglied P2–P1")
-    ax.plot([O0x, P1x], [O0y, P1y], 'b-', label="Glied O0–P1")
-
-    ax.set_xlim(-60, 30)
-    ax.set_ylim(-40, 40)
-    ax.set_xlabel("X-Achse")
-    ax.set_ylabel("Y-Achse")
-    ax.set_title("Viergelenkkette – Schematische Darstellung")
-    ax.legend()
-
-    # Darstellung in Streamlit
-    st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
