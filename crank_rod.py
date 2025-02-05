@@ -5,6 +5,52 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
+def build_circle():
+    # Create points that form a circle
+    theta = np.linspace(0, 2 * np.pi, 4, endpoint=False)
+    radius = 10
+    return {
+        "p0": np.array([radius * np.cos(theta[0]), radius * np.sin(theta[0])]),
+        "p1": np.array([radius * np.cos(theta[1]), radius * np.sin(theta[1])]),
+        "p2": np.array([radius * np.cos(theta[2]), radius * np.sin(theta[2])]),
+        "p3": np.array([radius * np.cos(theta[3]), radius * np.sin(theta[3])])
+    }
+
+def build_matrix_crank():
+    A = np.zeros((8, 8))
+    # Stab 1: p0 -> p1
+    A[0, 0] =  1.0; A[0, 2] = -1.0
+    A[1, 1] =  1.0; A[1, 3] = -1.0
+    # Stab 2: p1 -> p2
+    A[2, 2] =  1.0; A[2, 4] = -1.0
+    A[3, 3] =  1.0; A[3, 5] = -1.0
+    # Stab 3: p2 -> p3
+    A[4, 4] =  1.0; A[4, 6] = -1.0
+    A[5, 5] =  1.0; A[5, 7] = -1.0
+    # Stab 4: p3 -> p0
+    A[6, 6] =  1.0; A[6, 0] = -1.0
+    A[7, 7] =  1.0; A[7, 1] = -1.0
+    return A
+
+def compute_bar_lengths(A, x):
+    # A*x -> Differenzvektoren, daraus euklidische Längen
+    diffs = A @ x  # Vektor der Länge 8
+    diffs_2d = diffs.reshape(-1, 2)  # (4,2)
+    lengths = np.linalg.norm(diffs_2d, axis=1)
+    return lengths
+
+def run_4bar_calculation(points):
+    # Beispiel-Funktion zum direkten Abrufen
+    x = np.array([
+        points["p0"][0], points["p0"][1],
+        points["p1"][0], points["p1"][1],
+        points["p2"][0], points["p2"][1],
+        points["p3"][0], points["p3"][1],
+    ])
+    A = build_matrix_crank()
+    lengths = compute_bar_lengths(A, x)
+    return lengths
+
 def circle_intersections(c1, r1, c2, r2):
     """
     Berechnet die Schnittpunkte zweier Kreise:
@@ -41,12 +87,13 @@ def circle_intersections(c1, r1, c2, r2):
     p2 = (xm - rx, ym - ry)
     return [p1, p2]
 
-def animate_4bar_kinematics(points):
+def animate_crank_kinematics(points):
     """
     Erwartet Dictionary 'points' mit p0, p1, p2, p3.
     p0 und p3 werden als fix angenommen.
     p1 und p2 sind Gelenkpunkte. 
     Wir drehen p1 um p0, und p2 findet sich durch Koppeln an p1->p2 und p3->p2.
+    Zeichnet außerdem einen Kreis um p0 mit Radius = L0 = |p0->p1|.
     """
 
     p0 = points["p0"]
@@ -60,11 +107,6 @@ def animate_4bar_kinematics(points):
     L2 = np.linalg.norm(p2_init - p3)   # p2->p3 (rocker)
     L3 = np.linalg.norm(p3 - p0)        # p3->p0 (ground)
 
-    # Grashof-Check (vereinfacht):
-    lengths_sorted = sorted([L0, L1, L2, L3])
-    if lengths_sorted[0] + lengths_sorted[1] > lengths_sorted[2] + lengths_sorted[3]:
-        print("WARNUNG: Grashof-Kriterium nicht erfüllt. Evtl. keine vollständige Rotation möglich.")
-
     # Animation-Parameter
     NUM_FRAMES = 80
     FPS = 10
@@ -73,7 +115,6 @@ def animate_4bar_kinematics(points):
     fig, ax = plt.subplots()
     ax.set_title("Echte 4-Gelenk-Kinematik")
     ax.set_aspect("equal", adjustable="box")  # 1:1
-    # Limits kannst du anpassen oder automatisiert setzen
     ax.set_xlim(-50, 50)
     ax.set_ylim(-50, 50)
 
@@ -87,7 +128,15 @@ def animate_4bar_kinematics(points):
     (bar_01,) = ax.plot([], [], "k-", lw=2)
     (bar_12,) = ax.plot([], [], "k-", lw=2)
     (bar_23,) = ax.plot([], [], "k-", lw=2)
-    (bar_30,) = ax.plot([], [], "k-", lw=2)
+    # bar_30 weglassen oder aktivieren, je nachdem du willst
+
+    # --- NEU: Kreis um p0 zeichnen ---
+    # radius = L0 => der gleiche Radius wie der Treiber p0->p1
+    circle = plt.Circle((p0[0], p0[1]), L0,
+                        fill=False, color="blue", lw=2)
+
+    # Füge den Kreis dem Axes-Objekt hinzu
+    ax.add_patch(circle)
 
     def init():
         ln_p0.set_data([], [])
@@ -97,28 +146,24 @@ def animate_4bar_kinematics(points):
         bar_01.set_data([], [])
         bar_12.set_data([], [])
         bar_23.set_data([], [])
-        bar_30.set_data([], [])
+
+        # Der Kreis ist schon angelegt, muss aber ins Rückgabe-Tuple,
+        # damit FuncAnimation nicht die Objekte vergisst.
         return (ln_p0, ln_p1, ln_p2, ln_p3,
-                bar_01, bar_12, bar_23, bar_30)
+                bar_01, bar_12, bar_23, circle)
 
     def update(frame):
-        # Drehe p1 um p0
-        alpha = 2 * np.pi * frame / NUM_FRAMES  # 0..2pi
+        alpha = 2 * np.pi * frame / NUM_FRAMES
         px1 = p0[0] + L0 * np.cos(alpha)
         py1 = p0[1] + L0 * np.sin(alpha)
         p1 = np.array([px1, py1])
 
-        # Finde p2 als Schnittpunkt:
-        #  - Kreis um p1, Radius = L1
-        #  - Kreis um p3, Radius = L2
+        # p2 als Schnittpunkt:
         hits = circle_intersections(p1, L1, p3, L2)
         if len(hits) == 0:
-            # kein Schnitt -> Stabkonfiguration nicht möglich
             p2 = np.array([np.nan, np.nan])
         else:
-            # nimm z.B. den ERSTEN Schnitt
             p2 = np.array(hits[0])
-            # Optional: je nach Mechanismus (Ober-/Unterbau), kannst du hits[1] nehmen.
 
         # Updaten der Scatter/Line-Daten
         ln_p0.set_data([p0[0]], [p0[1]])
@@ -129,10 +174,10 @@ def animate_4bar_kinematics(points):
         bar_01.set_data([p0[0], p1[0]], [p0[1], p1[1]])
         bar_12.set_data([p1[0], p2[0]], [p1[1], p2[1]])
         bar_23.set_data([p2[0], p3[0]], [p2[1], p3[1]])
-        bar_30.set_data([p3[0], p0[0]], [p3[1], p0[1]])
 
+        # Kreis muss nicht aktualisiert werden, da p0 und L0 konstant sind
         return (ln_p0, ln_p1, ln_p2, ln_p3,
-                bar_01, bar_12, bar_23, bar_30)
+                bar_01, bar_12, bar_23, circle)
 
     ani = FuncAnimation(
         fig, update, 
