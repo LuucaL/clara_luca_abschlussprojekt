@@ -87,13 +87,11 @@ def circle_intersections(c1, r1, c2, r2):
     p2 = (xm - rx, ym - ry)
     return [p1, p2]
 
-def animate_crank_kinematics(points):
+def animate_crank_kinematics(points, show_path=False):
     """
-    Erwartet Dictionary 'points' mit p0, p1, p2, p3.
-    p0 und p3 werden als fix angenommen.
-    p1 und p2 sind Gelenkpunkte. 
-    Wir drehen p1 um p0, und p2 findet sich durch Koppeln an p1->p2 und p3->p2.
-    Zeichnet außerdem einen Kreis um p0 mit Radius = L0 = |p0->p1|.
+    Erwartet Dictionary:
+      points["p0"], points["p1"], points["p2"], points["p3"]
+    p0, p3 sind fix, p1 und p2 beweglich.
     """
 
     p0 = points["p0"]
@@ -101,42 +99,42 @@ def animate_crank_kinematics(points):
     p2_init = points["p2"]
     p3 = points["p3"]
 
-    # Vier Stablängen:
-    L0 = np.linalg.norm(p1_init - p0)   # p0->p1 (driver)
-    L1 = np.linalg.norm(p2_init - p1_init)  # p1->p2 (coupler)
-    L2 = np.linalg.norm(p2_init - p3)   # p2->p3 (rocker)
-    L3 = np.linalg.norm(p3 - p0)        # p3->p0 (ground)
+    # Stablängen
+    L0 = np.linalg.norm(p1_init - p0)   
+    L1 = np.linalg.norm(p2_init - p1_init)
+    L2 = np.linalg.norm(p2_init - p3)
+    L3 = np.linalg.norm(p3 - p0)
 
-    # Animation-Parameter
     NUM_FRAMES = 80
     FPS = 10
 
-    # Matplotlib-Setup
     fig, ax = plt.subplots()
     ax.set_title("Echte 4-Gelenk-Kinematik")
-    ax.set_aspect("equal", adjustable="box")  # 1:1
+    ax.set_aspect("equal", adjustable="box")
     ax.set_xlim(-50, 50)
     ax.set_ylim(-50, 50)
 
-    # Marker: p0, p1, p2, p3
-    (ln_p0,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
+    # Plot-Objekte: Marker (Punkte)
+    (ln_p0,) = ax.plot([], [], "ro", ms=8)
     (ln_p1,) = ax.plot([], [], "bo", ms=8)
     (ln_p2,) = ax.plot([], [], "go", ms=8)
-    (ln_p3,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
+    (ln_p3,) = ax.plot([], [], "ro", ms=8)
 
-    # Stäbe als Linien
+    # Stäbe
     (bar_01,) = ax.plot([], [], "k-", lw=2)
     (bar_12,) = ax.plot([], [], "k-", lw=2)
     (bar_23,) = ax.plot([], [], "k-", lw=2)
-    # bar_30 weglassen oder aktivieren, je nachdem du willst
 
-    # --- NEU: Kreis um p0 zeichnen ---
-    # radius = L0 => der gleiche Radius wie der Treiber p0->p1
-    circle = plt.Circle((p0[0], p0[1]), L0,
-                        fill=False, color="blue", lw=2)
-
-    # Füge den Kreis dem Axes-Objekt hinzu
+    # Kreis um p0 (Kurbelradius)
+    circle = plt.Circle((p0[0], p0[1]), L0, fill=False, color="blue", lw=2)
     ax.add_patch(circle)
+
+    # Falls wir eine Bahnkurve für p2 wollen, legen wir eine grüne gestrichelte Linie an
+    if show_path:
+        p2_xdata, p2_ydata = [], []
+        (p2_path,) = ax.plot([], [], "g--", lw=2)
+    else:
+        p2_path = None
 
     def init():
         ln_p0.set_data([], [])
@@ -147,48 +145,58 @@ def animate_crank_kinematics(points):
         bar_12.set_data([], [])
         bar_23.set_data([], [])
 
-        # Der Kreis ist schon angelegt, muss aber ins Rückgabe-Tuple,
-        # damit FuncAnimation nicht die Objekte vergisst.
-        return (ln_p0, ln_p1, ln_p2, ln_p3,
-                bar_01, bar_12, bar_23, circle)
+        # Rückgabe der animierten Objekte
+        objs = (ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, circle)
+        if p2_path:
+            p2_path.set_data([], [])
+            objs += (p2_path,)
+        return objs
 
     def update(frame):
-        alpha = 2 * np.pi * frame / NUM_FRAMES
-        px1 = p0[0] + L0 * np.cos(alpha)
-        py1 = p0[1] + L0 * np.sin(alpha)
+        alpha = 2*np.pi*frame/NUM_FRAMES
+        px1 = p0[0] + L0*np.cos(alpha)
+        py1 = p0[1] + L0*np.sin(alpha)
         p1 = np.array([px1, py1])
 
-        # p2 als Schnittpunkt:
+        # p2 per Kreisschnitt
         hits = circle_intersections(p1, L1, p3, L2)
-        if len(hits) == 0:
+        if not hits:
             p2 = np.array([np.nan, np.nan])
         else:
             p2 = np.array(hits[0])
 
-        # Updaten der Scatter/Line-Daten
+        # Marker aktualisieren
         ln_p0.set_data([p0[0]], [p0[1]])
         ln_p1.set_data([p1[0]], [p1[1]])
         ln_p2.set_data([p2[0]], [p2[1]])
         ln_p3.set_data([p3[0]], [p3[1]])
 
+        # Stäbe
         bar_01.set_data([p0[0], p1[0]], [p0[1], p1[1]])
         bar_12.set_data([p1[0], p2[0]], [p1[1], p2[1]])
         bar_23.set_data([p2[0], p3[0]], [p2[1], p3[1]])
 
-        # Kreis muss nicht aktualisiert werden, da p0 und L0 konstant sind
-        return (ln_p0, ln_p1, ln_p2, ln_p3,
-                bar_01, bar_12, bar_23, circle)
+        # Bahnkurve von p2 aufzeichnen
+        if p2_path:
+            p2_xdata.append(p2[0])
+            p2_ydata.append(p2[1])
+            p2_path.set_data(p2_xdata, p2_ydata)
+
+        objs = (ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, circle)
+        if p2_path:
+            objs += (p2_path,)
+        return objs
 
     ani = FuncAnimation(
-        fig, update, 
-        frames=NUM_FRAMES, 
+        fig,
+        update,
+        frames=NUM_FRAMES,
         init_func=init,
-        interval=1000//FPS, 
+        interval=1000//FPS,
         blit=True
     )
 
-    # In GIF speichern
-    import tempfile, os, io
+    # GIF export
     tmpfile = tempfile.NamedTemporaryFile(suffix=".gif", delete=False)
     tmp_filename = tmpfile.name
     tmpfile.close()
