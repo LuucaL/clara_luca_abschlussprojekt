@@ -3,12 +3,14 @@ import streamlit as st
 import numpy as np
 from four_bar import animate_4bar_kinematics
 from crank_rod import animate_crank_kinematics
+from strandbeest import animate_strandbeest
+from advanced_strandbeest import animate_strandbeest_full
 
 def main():
     st.title("Ebene Mechanismen")
     choice = st. radio(
         "Welches Modell wollen Sie wählen?",
-        ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "freier Mechanismus")
+        ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Freier-Mechanismus", "Strandbeest", "Advanced-Strandbeest")
     )
 
     if choice == "Geschlossenes 4-Gelenk":
@@ -86,6 +88,22 @@ def main():
             if st.button("Simulation starten"):
                 gif_buffer = animate_crank_kinematics(points, show_path=show_path)
                 st.image(gif_buffer, caption="crank-Simulation (Pfad = {})".format(show_path))
+
+    elif choice == "Strandbeest":
+        st.write("Strandbeest")
+        start_pos = np.array([0.0, 0.0])
+
+        if st.button("Simulation starten"):
+            gif_buffer = animate_strandbeest(start_pos)
+            st.image(gif_buffer, caption="Strandbeest-Simulation")
+
+    elif choice == "Advanced-Strandbeest":
+        st.write("Advanced-Strandbeest")
+        start_pos = np.array([0.0, 0.0])
+        
+        if st.button("Simulation starten"):
+            gif_buffer = animate_strandbeest_full(start_pos)
+            st.image(gif_buffer, caption="Strandbeest-Simulation")
 
     elif choice == "Freier-Mechanismus":
         st.write("Freier-Mechanismus")
