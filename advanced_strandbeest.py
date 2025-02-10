@@ -1,181 +1,215 @@
-# advanced_strandbeest.py
 import numpy as np
+import math
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
-import io
-import tempfile
-import os
+import matplotlib.animation as animation
+from scipy.optimize import least_squares
+import tempfile, os
+from io import BytesIO
 
-# --- Definierte Stablängen (Maße aus Ihrem Modell) ---
-A = 38.0
-B = 41.5
-C = 39.3
-D = 40.1
-E = 55.8
-F = 39.4
-G = 36.7
-H = 65.7
-I = 49.0
-J = 50.0
-K = 61.9
-L = 7.8
-M = 15.0  # Kurbelradius
+# Konstanten für den Solver
+FTOL = 1e-7
+XTOL = 1e-7
+GTOL = 1e-7
+MAX_NFEV = 1000
 
-def circle_intersections(P, r, Q, s):
+class MechanismSimulator:
     """
-    Berechnet die beiden Schnittpunkte der Kreise:
-      Kreis 1: Mittelpunkt P, Radius r
-      Kreis 2: Mittelpunkt Q, Radius s
-    Gibt ein Array der beiden Schnittpunkte zurück oder None, wenn kein Schnitt existiert.
+    Diese Klasse kapselt die Logik eines starren Stabsystems, bei dem zwei Punkte fest (Y, Z) sind, 
+    X sich auf einem Kreis um Z bewegt und die übrigen Punkte (W, V, T, U, S) so angepasst werden,
+    dass alle Kanten (Stäbe) ihre Länge beibehalten.
     """
-    d = np.linalg.norm(Q - P)
-    if d > r + s or d < abs(r - s):
-        return None  # Kein Schnittpunkt
-    a = (r**2 - s**2 + d**2) / (2 * d)
-    h = np.sqrt(max(r**2 - a**2, 0))
-    P2 = P + a * (Q - P) / d
-    intersection1 = P2 + np.array([ h * (Q[1] - P[1]) / d, -h * (Q[0] - P[0]) / d ])
-    intersection2 = P2 - np.array([ h * (Q[1] - P[1]) / d, -h * (Q[0] - P[0]) / d ])
-    return np.array([intersection1, intersection2])
+    def __init__(self, fixed_points: dict, init_positions: dict, edges: list):
+        self.fixed_points = fixed_points
+        self.init_positions = init_positions
+        self.edges = edges
+        self.free_labels = ["W", "V", "T", "U", "S"]
+        self.current_free_positions = {k: v.copy() for k, v in init_positions.items() if k in self.free_labels}
+        self.rod_lengths = self._compute_rod_lengths()
+        # Kreisparameter: X bewegt sich um Z, der Kreisradius wird aus der Anfangsposition von X bestimmt.
+        self.X0 = init_positions["X"]
+        self.R = np.linalg.norm(np.array(self.X0) - np.array(self.fixed_points["Z"]))
 
-def default_choice(candidates, label):
-    """
-    Legt für den ersten Frame (ohne vorherigen Wert) eine Default-Entscheidung fest.
-    Für bestimmte Gelenke wählen wir z. B.:
-      - Bei P2 und P3: den Kandidaten mit dem kleineren y-Wert
-      - Bei P4 bis P7: den Kandidaten mit dem größeren x-Wert
-    """
-    if label in ['P2', 'P3']:
-        return candidates[0] if candidates[0][1] < candidates[1][1] else candidates[1]
-    elif label in ['P4', 'P5', 'P6', 'P7']:
-        return candidates[0] if candidates[0][0] > candidates[1][0] else candidates[1]
-    else:
-        return candidates[0]
+    def _compute_rod_lengths(self) -> dict:
+        rod_lengths = {}
+        for (p1, p2) in self.edges:
+            p1_pos = self.init_positions.get(p1, self.fixed_points.get(p1))
+            p2_pos = self.init_positions.get(p2, self.fixed_points.get(p2))
+            length = np.linalg.norm(np.array(p1_pos) - np.array(p2_pos))
+            rod_lengths[(p1, p2)] = length
+            rod_lengths[(p2, p1)] = length  # symmetrisch
+        return rod_lengths
 
-def pick_solution(candidates, prev, label):
-    """
-    Wählt den Schnittpunkt.
-    Falls ein vorheriger Wert (prev) existiert, wird der Kandidat gewählt, der diesem näher liegt.
-    Andernfalls erfolgt die Default-Auswahl.
-    """
-    if prev is not None:
-        if np.linalg.norm(candidates[0] - prev) < np.linalg.norm(candidates[1] - prev):
-            return candidates[0]
-        else:
-            return candidates[1]
-    else:
-        return default_choice(candidates, label)
+    def crank_position(self, theta_deg: float) -> np.ndarray:
+        theta = math.radians(theta_deg)
+        cx = self.fixed_points["Z"][0] + self.R * math.cos(theta)
+        cy = self.fixed_points["Z"][1] + self.R * math.sin(theta)
+        return np.array([cx, cy], dtype=float)
 
-def safe_intersection(P, r, Q, s, label, prev_positions):
-    """
-    Ruft circle_intersections auf. Falls keine Schnittpunkte gefunden werden (sol ist None),
-    wird als Fallback entweder der vorherige Wert (sofern vorhanden) oder der Mittelpunkt von P und Q gewählt.
-    Andernfalls wird mittels pick_solution der passendste Kandidat ermittelt.
-    """
-    sol = circle_intersections(P, r, Q, s)
-    if sol is None:
-        # Fallback: Verwende vorherigen Wert, falls vorhanden, sonst Mittelpunkt von P und Q
-        fallback = prev_positions[label] if prev_positions is not None and label in prev_positions else (P + Q) / 2.0
-        return fallback
-    else:
-        prev = prev_positions[label] if prev_positions is not None and label in prev_positions else None
-        return pick_solution(sol, prev, label)
+    def pack_positions(self, positions_dict: dict) -> np.ndarray:
+        return np.array([pos for label in self.free_labels for pos in positions_dict[label]], dtype=float)
 
-def compute_positions_no_offset(theta, prev_positions=None):
-    """
-    Berechnet in Abhängigkeit des Kurbelwinkels theta die Gelenkpunkte P0 bis P7 
-    für den Jansen-Beinmechanismus.
-    Falls einzelne Schnittpunkte nicht berechnet werden können, werden Fallback-Werte genutzt.
-    """
-    # Fester Rahmenpunkt
-    P0 = np.array([0.0, 0.0])
-    # Kurbelpunkt P1 liegt auf dem Kreis mit Radius M
-    P1 = np.array([M * np.cos(theta), M * np.sin(theta)])
-    positions = {'P0': P0, 'P1': P1}
+    def unpack_positions(self, param_vector: np.ndarray) -> dict:
+        free_positions = {}
+        for i, label in enumerate(self.free_labels):
+            free_positions[label] = param_vector[2*i:2*i+2]
+        return free_positions
 
-    P2 = safe_intersection(P0, A, P1, B, 'P2', prev_positions)
-    positions['P2'] = P2
-    P3 = safe_intersection(P1, C, P2, D, 'P3', prev_positions)
-    positions['P3'] = P3
-    P4 = safe_intersection(P0, E, P3, F, 'P4', prev_positions)
-    positions['P4'] = P4
-    P5 = safe_intersection(P4, G, P2, H, 'P5', prev_positions)
-    positions['P5'] = P5
-    P6 = safe_intersection(P3, I, P4, J, 'P6', prev_positions)
-    positions['P6'] = P6
-    P7 = safe_intersection(P4, K, P6, L, 'P7', prev_positions)
-    positions['P7'] = P7
+    def constraint_equations(self, param_vector: np.ndarray, X_current: np.ndarray) -> np.ndarray:
+        free_pos = self.unpack_positions(param_vector)
+        all_pos = {**self.fixed_points, "X": X_current, **free_pos}
+        residuals = []
+        for (p1, p2) in self.edges:
+            target_length = self.rod_lengths[(p1, p2)]
+            current_length = np.linalg.norm(all_pos[p1] - all_pos[p2])
+            residuals.append(current_length - target_length)
+        return np.array(residuals)
 
-    return positions
+    def update(self, frame_deg: float) -> dict:
+        X_current = self.crank_position(frame_deg)
+        start_vec = self.pack_positions(self.current_free_positions)
+        sol = least_squares(
+            fun=self.constraint_equations,
+            x0=start_vec,
+            args=(X_current,),
+            ftol=FTOL, xtol=XTOL, gtol=GTOL,
+            max_nfev=MAX_NFEV
+        )
+        if not sol.success:
+            print(f"Warnung: least_squares hat bei Winkel {frame_deg}° nicht konvergiert.")
+        free_solution = self.unpack_positions(sol.x)
+        self.current_free_positions = free_solution
+        all_points = {**self.fixed_points, "X": X_current, **free_solution}
+        return all_points
 
-def animate_strandbeest_full(start_pos=np.array([0.0, 0.0])):
+def animate_strandbeest_full(points, show_path=False):
     """
-    Erzeugt eine Animation des Advanced-Strandbeest (Jansen-Beinmechanismus) und gibt einen GIF-Buffer zurück.
-    Der Parameter start_pos wird zu allen Gelenkpunkten addiert, um den Mechanismus an eine beliebige Position zu verschieben.
+    Erzeugt die Animation für den Mechanismus.
+    Falls show_path True ist, wird zusätzlich die Bahnkurve des Punktes S als grüne, 
+    gestrichelte Linie gezeichnet.
     """
-    fig, ax = plt.subplots()
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(-100 + start_pos[0], 100 + start_pos[0])
-    ax.set_ylim(-100 + start_pos[1], 100 + start_pos[1])
-    ax.set_title("Advanced-Strandbeest Simulation")
-    
-    # Definition der Segmente, die die Gelenkpunkte verbinden (entsprechend der Stäbe)
-    segments = [
-        ('P0', 'P1'),
-        ('P0', 'P2'),
-        ('P1', 'P2'),
-        ('P1', 'P3'),
-        ('P2', 'P3'),
-        #('P0', 'P4'),
-        ('P3', 'P4'),
-        ('P4', 'P5'),
-        ('P2', 'P5'),
-        ('P3', 'P6'),
-        ('P4', 'P6'),
-        ('P4', 'P7'),
-        ('P6', 'P7'),
+    # Definition der Punkte (Standardwerte oder aus points übernommene Werte)
+    # Hier ein Beispiel:
+    Y = (-3, 0)
+    Z = (10.1, 0)
+    X0 = (15.6, 0.5)
+    W = (3.3, 9)
+    V = (-12.4, 5.7)
+    T = (-8.3, -4.5)
+    U = (1.1, -10.2)
+    S = (-2.9, -23.7)
+
+    fixed_points = {
+        "Y": np.array(Y, dtype=float),
+        "Z": np.array(Z, dtype=float)
+    }
+    init_positions = {
+        "X": np.array(X0, dtype=float),
+        "W": np.array(W, dtype=float),
+        "V": np.array(V, dtype=float),
+        "T": np.array(T, dtype=float),
+        "U": np.array(U, dtype=float),
+        "S": np.array(S, dtype=float)
+    }
+
+    edges = [
+        ("Y", "V"),
+        ("V", "W"),
+        ("W", "X"),
+        ("X", "Z"),
+        ("Y", "W"),
+        ("T", "U"),
+        ("U", "S"),
+        ("S", "T"),
+        ("V", "T"),
+        ("Y", "U"),
+        ("U", "X"),
     ]
     
-    # Erzeugen von Linienobjekten für jedes Segment
+    simulator = MechanismSimulator(fixed_points, init_positions, edges)
+
+    # Erstelle die Figur und Achsen
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(-30, 30)
+    ax.set_ylim(-35, 35)
+    ax.set_title("Strandbeest-Kinematik")
+    ax.grid(True)
+
+    # Erzeuge Linien-Objekte für die Kanten
     lines = []
-    for _ in segments:
-        line_obj, = ax.plot([], [], 'ko-', lw=2)
-        lines.append(line_obj)
+    for _ in edges:
+        line, = ax.plot([], [], 'k-', lw=2)
+        lines.append(line)
+
+    # Erzeuge Punkt-Markierungen und Labels für alle Punkte
+    all_labels = list(fixed_points.keys()) + ["X"] + simulator.free_labels
+    point_markers = {}
+    for label in all_labels:
+        marker, = ax.plot([], [], 'ro')
+        text = ax.text(0, 0, label, fontsize=8)
+        point_markers[label] = (marker, text)
     
-    prev_positions = {}
+    # Falls wir die Bahnkurve für S wollen, initialisieren wir die entsprechenden Daten und den Plot
+    if show_path:
+        S_path_xdata, S_path_ydata = [], []
+        S_path_line, = ax.plot([], [], "g--", lw=2, label="Bahnkurve von S")
+    else:
+        S_path_line = None
 
     def init():
-        for line_obj in lines:
-            line_obj.set_data([], [])
-        return lines
+        for line in lines:
+            line.set_data([], [])
+        for marker, text in point_markers.values():
+            marker.set_data([], [])
+            text.set_position((0, 0))
+        if show_path:
+            S_path_line.set_data([], [])
+        # Rückgabe aller zu aktualisierenden Artist-Objekte
+        artists = list(point_markers.values()) + lines
+        if show_path:
+            artists.append(S_path_line)
+        return artists
 
-    def update(frame):
-        nonlocal prev_positions
-        theta = 2 * np.pi * frame / 120.0  # Eine volle Umdrehung in 120 Frames
-        pos = compute_positions_no_offset(theta, prev_positions)
-        prev_positions = pos
-        # Verschiebung um start_pos
-        pos_offset = {key: pos[key] + start_pos for key in pos}
-        for i, (p_start, p_end) in enumerate(segments):
-            start = pos_offset[p_start]
-            end = pos_offset[p_end]
-            lines[i].set_data([start[0], end[0]], [start[1], end[1]])
-        return lines
+    def animate(frame_deg):
+        all_points = simulator.update(frame_deg)
+        # Aktualisiere die Linien (Kanten)
+        for i, (p1, p2) in enumerate(edges):
+            xdata = [all_points[p1][0], all_points[p2][0]]
+            ydata = [all_points[p1][1], all_points[p2][1]]
+            lines[i].set_data(xdata, ydata)
+        # Aktualisiere die Punkte und Labels
+        for label, (marker, text) in point_markers.items():
+            x, y = all_points[label]
+            marker.set_data([x], [y])
+            text.set_position((x + 0.3, y + 0.3))
+        # Aktualisiere die Bahnkurve für S
+        if show_path:
+            S = all_points["S"]
+            S_path_xdata.append(S[0])
+            S_path_ydata.append(S[1])
+            S_path_line.set_data(S_path_xdata, S_path_ydata)
+        artists = list(point_markers.values()) + lines
+        if show_path:
+            artists.append(S_path_line)
+        return artists
 
-    # Wichtig: blit=False, damit jeder Frame vollständig gezeichnet wird
-    ani = FuncAnimation(fig, update, frames=120, init_func=init, blit=False, interval=50)
+    ani = animation.FuncAnimation(
+        fig,
+        animate,
+        frames=np.arange(0, 360, 2),  # z. B. von 0° bis 358° in 2°-Schritten
+        init_func=init,
+        blit=False,
+        interval=50
+    )
     
-    # Speichern der Animation in eine temporäre Datei und Laden in einen Buffer
-    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as tmp_file:
-        tmp_filename = tmp_file.name
-    writer = PillowWriter(fps=20)
-    ani.save(tmp_filename, writer=writer)
+    # Speichere die Animation in eine temporäre Datei und lese den Inhalt ein
+    with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as tmpfile:
+        tmp_filename = tmpfile.name
+    try:
+        ani.save(tmp_filename, writer="pillow", fps=20)
+        with open(tmp_filename, "rb") as f:
+            buf = f.read()
+    finally:
+        os.remove(tmp_filename)
     plt.close(fig)
-    
-    with open(tmp_filename, "rb") as f:
-        gif_data = f.read()
-    os.remove(tmp_filename)
-    
-    buf = io.BytesIO(gif_data)
-    buf.seek(0)
     return buf

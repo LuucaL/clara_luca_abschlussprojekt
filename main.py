@@ -101,9 +101,12 @@ def main():
         st.write("Advanced-Strandbeest")
         start_pos = np.array([0.0, 0.0])
         
+        choice_path = st.radio("Mit Bahnkurve oder ohne?", ("Mit Bahnkurve", "Ohne Bahnkurve"))
+        show_path = (choice_path == "Mit Bahnkurve")
+
         if st.button("Simulation starten"):
-            gif_buffer = animate_strandbeest_full(start_pos)
-            st.image(gif_buffer, caption="Strandbeest-Simulation")
+            gif_buffer = animate_strandbeest_full(start_pos, show_path=show_path)
+            st.image(gif_buffer, caption="Advanced-Strandbeest-Simulation (Pfad = {})".format(show_path))
 
     elif choice == "Freier-Mechanismus":
         st.write("Freier-Mechanismus")
