@@ -99,6 +99,10 @@ def main():
                 "p3": np.array([30.0, 0.0]),
             }
             st.write("Standardpunkte werden verwendet.")
+            if st.button("Simulation starten"):
+                gif_buffer = animate_4bar_kinematics(points)
+                st.image(gif_buffer, caption="4-Gelenk-Simulation")
+
     
         elif choice_points == "Eigene Punkte":
             st.write("Bitte eigene Punkte eingeben:")
