@@ -90,6 +90,7 @@ def circle_intersections(c1, r1, c2, r2):
     return [p1, p2]
 
 def animate_4bar_kinematics(points):
+    trajectory = []
     """
     Erwartet Dictionary 'points' mit p0, p1, p2, p3.
     p0 und p3 werden als fix angenommen.
@@ -137,6 +138,8 @@ def animate_4bar_kinematics(points):
     (bar_23,) = ax.plot([], [], "k-", lw=2)
     (bar_30,) = ax.plot([], [], "k-", lw=2)
 
+    
+
     def init():
         ln_p0.set_data([], [])
         ln_p1.set_data([], [])
@@ -167,6 +170,8 @@ def animate_4bar_kinematics(points):
             # nimm z.B. den ERSTEN Schnitt
             p2 = np.array(hits[0])
             # Optional: je nach Mechanismus (Ober-/Unterbau), kannst du hits[1] nehmen.
+
+        trajectory.append([p2[0], p2[1]])    
 
         # Updaten der Scatter/Line-Daten
         ln_p0.set_data([p0[0]], [p0[1]])
@@ -202,4 +207,4 @@ def animate_4bar_kinematics(points):
     os.remove(tmp_filename)
     plt.close(fig)
 
-    return io.BytesIO(gif_bytes)
+    return io.BytesIO(gif_bytes),trajectory

@@ -88,6 +88,8 @@ def circle_intersections(c1, r1, c2, r2):
     return [p1, p2]
 
 def animate_crank_kinematics(points, show_path=False):
+
+    trajectory = []
     """
     Erwartet Dictionary:
       points["p0"], points["p1"], points["p2"], points["p3"]
@@ -151,6 +153,8 @@ def animate_crank_kinematics(points, show_path=False):
             p2_path.set_data([], [])
             objs += (p2_path,)
         return objs
+    
+    
 
     def update(frame):
         alpha = 2*np.pi*frame/NUM_FRAMES
@@ -164,6 +168,9 @@ def animate_crank_kinematics(points, show_path=False):
             p2 = np.array([np.nan, np.nan])
         else:
             p2 = np.array(hits[0])
+
+        if show_path:
+            trajectory.append([p2[0], p2[1]])    
 
         # Marker aktualisieren
         ln_p0.set_data([p0[0]], [p0[1]])
@@ -207,4 +214,4 @@ def animate_crank_kinematics(points, show_path=False):
     os.remove(tmp_filename)
     plt.close(fig)
 
-    return io.BytesIO(gif_bytes)
+    return io.BytesIO(gif_bytes), trajectory

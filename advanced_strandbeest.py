@@ -82,6 +82,8 @@ class MechanismSimulator:
         return all_points
 
 def animate_strandbeest_full(points, show_path=False):
+
+    trajectory=[]
     """
     Erzeugt die Animation für den Mechanismus.
     Falls show_path True ist, wird zusätzlich die Bahnkurve des Punktes S als grüne, 
@@ -169,6 +171,7 @@ def animate_strandbeest_full(points, show_path=False):
         if show_path:
             artists.append(S_path_line)
         return artists
+    
 
     def animate(frame_deg):
         all_points = simulator.update(frame_deg)
@@ -183,15 +186,17 @@ def animate_strandbeest_full(points, show_path=False):
             marker.set_data([x], [y])
             text.set_position((x + 0.3, y + 0.3))
         # Aktualisiere die Bahnkurve für S
+        trajectory = []  # Liste zur Speicherung der Bahnkurve von S
         if show_path:
             S = all_points["S"]
             S_path_xdata.append(S[0])
             S_path_ydata.append(S[1])
             S_path_line.set_data(S_path_xdata, S_path_ydata)
+            trajectory = [(x, y) for x, y in zip(S_path_xdata, S_path_ydata)]  # Speichern der Bahnkurve
         artists = list(point_markers.values()) + lines
         if show_path:
             artists.append(S_path_line)
-        return artists
+        return artists, trajectory 
 
     ani = animation.FuncAnimation(
         fig,
@@ -212,4 +217,4 @@ def animate_strandbeest_full(points, show_path=False):
     finally:
         os.remove(tmp_filename)
     plt.close(fig)
-    return buf
+    return buf,trajectory
