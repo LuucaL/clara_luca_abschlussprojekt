@@ -89,8 +89,9 @@ def circle_intersections(c1, r1, c2, r2):
     p2 = (xm - rx, ym - ry)
     return [p1, p2]
 
-def animate_4bar_kinematics(points):
+def animate_4bar_kinematics(points, show_path=False):
     trajectory = []
+    trajectory_p1=[]
     """
     Erwartet Dictionary 'points' mit p0, p1, p2, p3.
     p0 und p3 werden als fix angenommen.
@@ -138,7 +139,9 @@ def animate_4bar_kinematics(points):
     (bar_23,) = ax.plot([], [], "k-", lw=2)
     (bar_30,) = ax.plot([], [], "k-", lw=2)
 
-    
+    if show_path:
+        (path_line,) = ax.plot([], [], "g--", lw=2)
+        (path_line_p1,) = ax.plot([], [], "b--", lw=2)
 
     def init():
         ln_p0.set_data([], [])
@@ -159,6 +162,7 @@ def animate_4bar_kinematics(points):
         py1 = p0[1] + L0 * np.sin(alpha)
         p1 = np.array([px1, py1])
 
+
         # Finde p2 als Schnittpunkt:
         #  - Kreis um p1, Radius = L1
         #  - Kreis um p3, Radius = L2
@@ -171,7 +175,13 @@ def animate_4bar_kinematics(points):
             p2 = np.array(hits[0])
             # Optional: je nach Mechanismus (Ober-/Unterbau), kannst du hits[1] nehmen.
 
-        trajectory.append([p2[0], p2[1]])    
+        if show_path:
+            trajectory.append([p2[0], p2[1]])  
+            trajectory_p1.append([p1[0], p1[1]])
+
+            path_line.set_data(*zip(*trajectory))  
+            path_line_p1.set_data(*zip(*trajectory_p1))   
+   
 
         # Updaten der Scatter/Line-Daten
         ln_p0.set_data([p0[0]], [p0[1]])
@@ -184,8 +194,9 @@ def animate_4bar_kinematics(points):
         bar_23.set_data([p2[0], p3[0]], [p2[1], p3[1]])
         bar_30.set_data([p3[0], p0[0]], [p3[1], p0[1]])
 
-        return (ln_p0, ln_p1, ln_p2, ln_p3,
-                bar_01, bar_12, bar_23, bar_30)
+        if show_path:
+            return ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, bar_30, path_line
+        return ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, bar_30
 
     ani = FuncAnimation(
         fig, update, 
@@ -207,4 +218,4 @@ def animate_4bar_kinematics(points):
     os.remove(tmp_filename)
     plt.close(fig)
 
-    return io.BytesIO(gif_bytes),trajectory
+    return io.BytesIO(gif_bytes),trajectory, trajectory_p1

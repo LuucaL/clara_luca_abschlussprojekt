@@ -2,47 +2,57 @@ import streamlit as st
 import numpy as np
 import csv
 import os
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
 from four_bar import animate_4bar_kinematics
 from crank_rod import animate_crank_kinematics
 from strandbeest import animate_strandbeest
 from advanced_strandbeest import animate_strandbeest_full
 
 
-def save_trajectory(trajectory, filename):
+def save_trajectory(trajectory, trajectory_p1, filename):
 
-    if trajectory is None or len(trajectory) == 0:
+    if not trajectory or not trajectory_p1:
         st.error("Fehler: Die Bahnkurve enthält keine Daten.")
         return
-    
-    trajectory = [[float(x), float(y)] for x, y in trajectory]
-
     try:
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["x", "y"])
-            writer.writerows(trajectory)
+            writer.writerow(["x_p1", "y_p1", "x_p2", "y_p2"])
+            for p1, p2 in zip(trajectory, trajectory_p1):
+                writer.writerow([p1[0], p1[1], p2[0], p2[1]])
         st.success(f"Bahnkurve gespeichert als {filename}")
     except Exception as e:
         st.error(f"Fehler beim Speichern: {e}")
 
 
-
-
-def load_saved_trajectories():
-    files = [f for f in os.listdir() if f.endswith(".csv")]
-    return files
+def load_saved_trajectory(filename):
+    trajectory_p1, trajectory = [], []
+    try:
+        with open(filename, newline="") as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)
+            for row in reader:
+                trajectory_p1.append([float(row[0]), float(row[1])])
+                trajectory.append([float(row[2]), float(row[3])]) 
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Bahnkurve: {e}")
+    return trajectory, trajectory_p1
 
 def display_saved_trajectory(filename):
-    if filename:
-        with open(filename, 'r') as file:
-            first_line = file.readline().strip()
+    trajectory, trajectory_p1 = load_saved_trajectory(filename)
 
-        try:
-            data = np.loadtxt(filename, delimiter=",", skiprows=1)
-            st.line_chart(data)
-        except ValueError:
-            st.error("Die Datei enthält ungültige Daten und kann nicht als Zahlen interpretiert werden.")
-
+    if trajectory and trajectory_p1:
+        fig, ax = plt.subplots()
+        data_p1 = np.array(trajectory)
+        data_p2 = np.array(trajectory_p1)
+        ax.plot(data_p1[:, 0], data_p1[:, 1], "b--", label="Bahnkurve p1 (blau)")
+        ax.plot(data_p2[:, 0], data_p2[:, 1], "g--", label="Bahnkurve p2 (grün)")
+        ax.grid(True)
+        ax.legend()
+        st.pyplot(fig)
+    else:
+        st.error("Die Datei enthält ungültige Daten und kann nicht als Zahlen interpretiert werden.")
 
 def main():
     st.title("Ebene Mechanismen")
@@ -57,14 +67,15 @@ def main():
 
 
     if choice == "Gespeicherte Bahnkurven anzeigen":
-        files = load_saved_trajectories()
+        files = [f for f in os.listdir() if f.endswith(".csv")]
         selected_file = st.selectbox("Wähle eine gespeicherte Bahnkurve", files)
         if st.button("Bahnkurve anzeigen"):
             display_saved_trajectory(selected_file)
 
     elif choice in ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Strandbeest", "Advanced-Strandbeest", "Freier-Mechanismus"]:
-        show_path = st.checkbox("Mit Bahnkurve") if choice in ["Kolben-Kurbel-Mechanismus", "Advanced-Strandbeest", "Strandbeest"] else False
-        trajectory = None
+        show_path = st.checkbox("Mit Bahnkurve")
+        trajectory, trajectory_p1=[], []
+
         if choice in ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Freier-Mechanismus"]:
             sub_choice = st.radio("Standardpunkte oder eigene Punkte?", ("Standardpunkte", "Eigene Punkte"))
             if sub_choice == "Standardpunkte":
@@ -90,41 +101,44 @@ def main():
                     "p3": np.array([p3_x, p3_y])
                 }
             if choice == "Geschlossenes 4-Gelenk":
-                animation_func = animate_4bar_kinematics
+                animation_func = lambda: animate_4bar_kinematics(points, show_path)
             elif choice == "Kolben-Kurbel-Mechanismus":
-                animation_func = lambda pts: animate_crank_kinematics(pts, show_path)
+                animation_func = lambda: animate_crank_kinematics(points, show_path)
             elif choice == "Freier-Mechanismus":
-                animation_func = lambda pts: animate_4bar_kinematics(pts)
+                animation_func = lambda: animate_4bar_kinematics(points)
         
         elif choice in ["Strandbeest", "Advanced-Strandbeest"]:
             start_pos = np.array([0.0, 0.0])
             if choice == "Strandbeest":
-                animation_func = lambda pos: animate_strandbeest(pos)
+                animation_func = lambda: animate_strandbeest(start_pos)
             else:
-                animation_func = lambda pos: animate_strandbeest_full(pos, show_path)
+                animation_func = lambda: animate_strandbeest_full(start_pos, show_path)
 
         if st.button("Simulation starten"):
           try:
-            if choice in ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Freier-Mechanismus"]:
-                gif_buffer, trajectory = animation_func(points)
+            result = animation_func()
+            if len(result) == 2:
+             gif_buffer, trajectory_p1 = result
+             trajectory = []
+            elif len(result) == 3:
+             gif_buffer, trajectory, trajectory_p1 = result
             else:
-                gif_buffer, trajectory = animation_func(start_pos)
+             raise ValueError(f"Unerwartete Anzahl an Rückgabewerten: {len(result)}")
 
             st.image(gif_buffer, caption=f"{choice}-Simulation")
-            if trajectory:
-                    st.session_state.trajectory = trajectory
-            else:
-                    st.warning("Keine Bahnkurve aufgezeichnet.")
 
+            if trajectory and trajectory_p1 and show_path:
+             st.session_state.trajectory = trajectory
+             st.session_state.trajectory_p1 = trajectory_p1
           except Exception as e:
             st.error(f"Fehler bei der Simulation: {e}")
-            print(f"Fehlerdetails: {e}")
+            print(f"DEBUG-Fehlerdetails: {e}")    
 
 
-        if st.session_state.trajectory:
-            filename = st.text_input("Dateiname für die Bahnkurve eingeben:", "trajectory.csv")
-            if st.button("Bahnkurve speichern", key="save_button"):
-             save_trajectory(st.session_state.trajectory, filename)  
+        if show_path and st.session_state.get("trajectory") and st.session_state.get("trajectory_p1"):
+            filename = st.text_input("Dateiname für die Bahnkurven eingeben:", "trajectory.csv")
+            if filename and st.button("Bahnkurven speichern"):
+                save_trajectory(st.session_state.trajectory, st.session_state.trajectory_p1, filename)
            
 
 

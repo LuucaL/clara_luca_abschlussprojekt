@@ -83,6 +83,13 @@ def animate_strandbeest(start_pos):
     marker_C, = ax.plot([], [], 'go', ms=8, label='C')
     marker_D, = ax.plot([], [], 'mo', ms=8, label='D')
     marker_E, = ax.plot([], [], 'co', ms=8, label='E')
+    
+    trajectory_A = []
+    trajectory_B = []
+    trajectory_C = []
+    trajectory_D = []
+    trajectory_E = []
+
 
     def init():
         line.set_data([], [])
@@ -93,7 +100,6 @@ def animate_strandbeest(start_pos):
         marker_E.set_data([], [])
         return line, marker_A, marker_B, marker_C, marker_D, marker_E
     
-    trajectory=[]
 
     def update(frame):
         A2 = 2 * np.pi * frame / NUM_FRAMES
@@ -133,7 +139,11 @@ def animate_strandbeest(start_pos):
         marker_D.set_data([D[0]], [D[1]])
         marker_E.set_data([E_pt[0]], [E_pt[1]])
 
-        trajectory.append([D[0], D[1]])
+        trajectory_A.append([A_pt[0], A_pt[1]])
+        trajectory_B.append([B[0], B[1]])
+        trajectory_C.append([C[0], C[1]])
+        trajectory_D.append([D[0], D[1]])
+        trajectory_E.append([E_pt[0], E_pt[1]])
         
         last_valid_artists = (line, marker_A, marker_B, marker_C, marker_D, marker_E)
         return last_valid_artists
@@ -155,4 +165,4 @@ def animate_strandbeest(start_pos):
         gif_bytes = f.read()
     os.remove(tmp_filename)
     plt.close(fig)
-    return io.BytesIO(gif_bytes), trajectory
+    return io.BytesIO(gif_bytes), trajectory_A, trajectory_B, trajectory_C, trajectory_D, trajectory_E
