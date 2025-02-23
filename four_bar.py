@@ -122,10 +122,10 @@ def animate_4bar_kinematics(points, show_path=False):
     # Matplotlib-Setup
     fig, ax = plt.subplots()
     ax.set_title("Echte 4-Gelenk-Kinematik")
-    ax.set_aspect("equal", adjustable="box")  # 1:1
+    ax.set_aspect("equal", adjustable="box")  
     # Limits kannst du anpassen oder automatisiert setzen
-    ax.set_xlim(-50, 50)
-    ax.set_ylim(-50, 50)
+    ax.set_xlim(-70, 50)
+    ax.set_ylim(-50, 70)
 
     # Marker: p0, p1, p2, p3
     (ln_p0,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
@@ -142,6 +142,8 @@ def animate_4bar_kinematics(points, show_path=False):
     if show_path:
         (path_line,) = ax.plot([], [], "g--", lw=2)
         (path_line_p1,) = ax.plot([], [], "b--", lw=2)
+        circle = plt.Circle((p0[0], p0[1]), L0, fill=False, color="blue", lw=2)
+        ax.add_patch(circle)
 
     def init():
         ln_p0.set_data([], [])
@@ -197,6 +199,7 @@ def animate_4bar_kinematics(points, show_path=False):
         if show_path:
             return ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, bar_30, path_line
         return ln_p0, ln_p1, ln_p2, ln_p3, bar_01, bar_12, bar_23, bar_30
+        
 
     ani = FuncAnimation(
         fig, update, 
