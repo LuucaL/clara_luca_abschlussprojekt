@@ -4,6 +4,7 @@ import tempfile
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
+import streamlit as st
 
 def build_points():
     # Standard-Punkte mal als Beispiel 
@@ -109,11 +110,15 @@ def animate_4bar_kinematics(points, show_path=False):
     L1 = np.linalg.norm(p2_init - p1_init)  # p1->p2 (coupler)
     L2 = np.linalg.norm(p2_init - p3)   # p2->p3 (rocker)
     L3 = np.linalg.norm(p3 - p0)        # p3->p0 (ground)
+    
+    if L0 == 0 or L1 == 0 or L2 == 0 or L3 == 0:
+        st.write("Fehler: Ein oder mehrere Stablängen sind null. Bitte geben Sie gültige Punkte ein.")
+        return None, None, None
 
     # Grashof-Check (vereinfacht):
     lengths_sorted = sorted([L0, L1, L2, L3])
     if lengths_sorted[0] + lengths_sorted[1] > lengths_sorted[2] + lengths_sorted[3]:
-        print("WARNUNG: Grashof-Kriterium nicht erfüllt. Evtl. keine vollständige Rotation möglich.")
+        st.print("WARNUNG: Grashof-Kriterium nicht erfüllt. Evtl. keine vollständige Rotation möglich.")
 
     # Animation-Parameter
     NUM_FRAMES = 80
@@ -121,11 +126,10 @@ def animate_4bar_kinematics(points, show_path=False):
 
     # Matplotlib-Setup
     fig, ax = plt.subplots()
-    ax.set_title("Echte 4-Gelenk-Kinematik")
+    #ax.set_title("Echte 4-Gelenk-Kinematik")
     ax.set_aspect("equal", adjustable="box")  
-    # Limits kannst du anpassen oder automatisiert setzen
-    ax.set_xlim(-70, 50)
-    ax.set_ylim(-50, 70)
+    ax.set_xlim(-70, 90)
+    ax.set_ylim(-70, 90)
 
     # Marker: p0, p1, p2, p3
     (ln_p0,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
@@ -169,13 +173,12 @@ def animate_4bar_kinematics(points, show_path=False):
         #  - Kreis um p1, Radius = L1
         #  - Kreis um p3, Radius = L2
         hits = circle_intersections(p1, L1, p3, L2)
-        if len(hits) == 0:
-            # kein Schnitt -> Stabkonfiguration nicht möglich
-            p2 = np.array([np.nan, np.nan])
-        else:
-            # nimm z.B. den ERSTEN Schnitt
-            p2 = np.array(hits[0])
-            # Optional: je nach Mechanismus (Ober-/Unterbau), kannst du hits[1] nehmen.
+        if not hits:
+            st.write("Fehler: Keine gültige Konfiguration gefunden. Überprüfen Sie die Eingabepunkte.")
+            return None
+        
+        p2 = np.array(hits[0])
+
 
         if show_path:
             trajectory.append([p2[0], p2[1]])  

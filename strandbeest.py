@@ -1,18 +1,19 @@
-# advanced_strandbeest.py
+
 import io
 import os
 import tempfile
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
+import streamlit as st
+
 
 def animate_strandbeest(start_pos):
     """
-    Simuliert ein vereinfachtes Bein des Theo Jansen-Mechanismus.
     
     start_pos: Basisposition (x,y) des gesamten Mechanismus (z. B. die Hüfte).
     
-    Verwendete Parameter (in Längeeinheiten), analog zu deinem MATLAB-Script:
+    Verwendete Parameter (in Längeeinheiten), analog zu dem MATLAB-Script:
       L1 = 6,  L2 = 1,  L3 = 8,  L4 = 5,  L5 = 5,  L8 = 0.5.
       
     Der Mechanismus basiert auf dem Vier-Gelenk-Ansatz:
@@ -85,6 +86,7 @@ def animate_strandbeest(start_pos):
     marker_E, = ax.plot([], [], 'co', ms=8, label='E')
 
     def init():
+        
         line.set_data([], [])
         marker_A.set_data([], [])
         marker_B.set_data([], [])
@@ -145,7 +147,6 @@ def animate_strandbeest(start_pos):
     )
 
     
-    # Speichern der Animation als GIF in einer temporären Datei und Rückgabe als BytesIO
     tmpfile = tempfile.NamedTemporaryFile(suffix=".gif", delete=False)
     tmp_filename = tmpfile.name
     tmpfile.close()

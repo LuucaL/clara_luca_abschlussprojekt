@@ -4,6 +4,7 @@ import tempfile
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
+import streamlit as st
 
 def circle_intersections(c1, r1, c2, r2, last_p2=None):
     """Berechnet die Schnittpunkte zweier Kreise und wählt den kontinuierlichsten Punkt."""
@@ -11,7 +12,8 @@ def circle_intersections(c1, r1, c2, r2, last_p2=None):
     d = np.hypot(x2 - x1, y2 - y1)
     
     if d > (r1 + r2) or d < abs(r1 - r2):
-        return last_p2  # Keine gültigen Schnittpunkte -> alten Wert behalten
+        st.write("Fehler: Kein gültiger Schnittpunkt für den Mechanismus gefunden. Überprüfen Sie die Punkte!")
+        return None
     
     a = (r1**2 - r2**2 + d**2) / (2 * d)
     h = np.sqrt(max(r1**2 - a**2, 0.0))
@@ -27,9 +29,36 @@ def circle_intersections(c1, r1, c2, r2, last_p2=None):
     if last_p2 is not None:
         return p1 if np.linalg.norm(last_p2 - p1) < np.linalg.norm(last_p2 - p2) else p2
     
-    return p1  # Falls kein vorheriger Punkt existiert
+    return p1  
+
+def validate_mechanism(points):
+    """Überprüft, ob die Punkte gültig sind."""
+    p0, p1, p2, p3 = points["p0"], points["p1"], points["p2"], points["p3"]
+    distances = {
+        "L0": np.linalg.norm(p1 - p0),
+        "L1": np.linalg.norm(p2 - p1),
+        "L2": np.linalg.norm(p2 - p3),
+        "L3": np.linalg.norm(p3 - p0),
+    }
+
+    # Überprüfung auf ungültige Abstände
+    for key, value in distances.items():
+        if value == 0:
+            st.write(f"Fehler: {key} ist Null. Punkte überlappen oder sind identisch!")
+            return False
+
+    # Prüfen, ob die Mechanismus-Bedingungen erfüllt sind (Grashof-Kriterium)
+    lengths_sorted = sorted(distances.values())
+    if lengths_sorted[0] + lengths_sorted[1] > lengths_sorted[2] + lengths_sorted[3]:
+        st.write("Warnung: Grashof-Kriterium nicht erfüllt. Der Mechanismus könnte sich nicht vollständig bewegen.")
+
+    return True
 
 def animate_crank_kinematics(points, show_path=False, save_filename=None):
+    
+    if not validate_mechanism(points):
+        return None, None, None
+    
     p0 = points["p0"]  
     p1_init = points["p1"]  
     p2_init = points["p2"]  
@@ -78,7 +107,11 @@ def animate_crank_kinematics(points, show_path=False, save_filename=None):
         p1 = np.array([px1, py1])
         
         p2 = circle_intersections(p1, L1, p3, L2, last_p2)
-        last_p2 = p2  # Wert immer aktualisieren
+        if p2 is None:
+            st.write("Simulation gestoppt: Keine gültige Position für P2 gefunden.")
+            return []  # Keine Animation ausführen, falls das Modell fehlschlägt
+        
+        last_p2 = p2
         
         if show_path:
             trajectory.append(p1.tolist())

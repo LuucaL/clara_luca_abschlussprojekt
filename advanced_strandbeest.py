@@ -82,8 +82,8 @@ class MechanismSimulator:
         return all_points
 
 def animate_strandbeest_full(points, show_path=False):
-
     trajectory=[]
+    
     """
     Erzeugt die Animation für den Mechanismus.
     Falls show_path True ist, wird zusätzlich die Bahnkurve des Punktes S als grüne, 
