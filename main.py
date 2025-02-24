@@ -99,8 +99,8 @@ def main():
             }
     else:
         show_path = False
-        points = None  # Sicherstellen, dass 'points' immer definiert ist
-
+        points = None  
+        
     animation_func = None
     if choice == "Geschlossenes 4-Gelenk":
         animation_func = lambda: animate_4bar_kinematics(points, show_path)
@@ -114,10 +114,18 @@ def main():
         animation_func = lambda: animate_strandbeest_full(np.array([0.0, 0.0]))
         
     
+    
+    if choice not in ["Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen"]:
+     filename_gif = st.text_input("Gib den Dateinamen für die GIF-Animation ein (mit .gif):", "animation.gif")   
+     if choice not in ["Strandbeest", "Advanced-Strandbeest"]:  
+      filename_traj = st.text_input("Gib den Dateinamen für die Bahnkurve ein (mit .csv):", "bahnkurve.csv")
+                                    
+     save_gif_checkbox = st.checkbox("GIF speichern")
+     save_traj_checkbox = st.checkbox("Bahnkurve speichern") if choice not in ["Strandbeest", "Advanced-Strandbeest"] else False
+    
     if animation_func and st.button("Simulation starten"):   
         #filename
-        filename_gif = st.text_input("Gib den Dateinamen für die GIF-Animation ein (mit .gif):", "animation.gif")
-        filename_traj = st.text_input("Gib den Dateinamen für die Bahnkurve ein (mit .csv):", "bahnkurve.csv")
+        
         try:
             
             result = animation_func()
@@ -127,12 +135,13 @@ def main():
             gif_buffer, trajectory, trajectory_p1 = result if len(result) == 3 else (result[0], result[1], None)
 
             st.image(gif_buffer, caption=f"{choice}-Simulation")
+            
+            if save_gif_checkbox:
+              save_gif(gif_buffer, filename_gif)
 
-            if show_path and (trajectory or trajectory_p1):
-                #filenmae_traj
-                save_trajectory(trajectory, trajectory_p1, filename_traj)
+            if save_traj_checkbox and show_path and (trajectory or trajectory_p1):
+              save_trajectory(trajectory, trajectory_p1, filename_traj)
 
-            save_gif(gif_buffer, filename_gif)
 
         except Exception as e:
             st.error(f"Fehler bei der Simulation: {e}")
