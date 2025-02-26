@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import streamlit as st
-
+   
 def build_points():
     # Standard-Punkte mal als Beispiel 
     return {
@@ -105,17 +105,17 @@ def animate_4bar_kinematics(points, show_path=False):
     p2_init = points["p2"]
     p3 = points["p3"]
 
-    # Vier Stablängen:
-    L0 = np.linalg.norm(p1_init - p0)   # p0->p1 (driver)
-    L1 = np.linalg.norm(p2_init - p1_init)  # p1->p2 (coupler)
-    L2 = np.linalg.norm(p2_init - p3)   # p2->p3 (rocker)
-    L3 = np.linalg.norm(p3 - p0)        # p3->p0 (ground)
+    
+    L0 = np.linalg.norm(p1_init - p0)   # p0->p1 
+    L1 = np.linalg.norm(p2_init - p1_init)  # p1->p2 
+    L2 = np.linalg.norm(p2_init - p3)   # p2->p3 
+    L3 = np.linalg.norm(p3 - p0)        # p3->p0 
     
     if L0 == 0 or L1 == 0 or L2 == 0 or L3 == 0:
         st.write("Fehler: Ein oder mehrere Stablängen sind null. Bitte geben Sie gültige Punkte ein.")
         return None, None, None
 
-    # Grashof-Check (vereinfacht):
+    
     lengths_sorted = sorted([L0, L1, L2, L3])
     if lengths_sorted[0] + lengths_sorted[1] > lengths_sorted[2] + lengths_sorted[3]:
         st.print("WARNUNG: Grashof-Kriterium nicht erfüllt. Evtl. keine vollständige Rotation möglich.")
@@ -124,20 +124,20 @@ def animate_4bar_kinematics(points, show_path=False):
     NUM_FRAMES = 80
     FPS = 10
 
-    # Matplotlib-Setup
+    
     fig, ax = plt.subplots()
     #ax.set_title("Echte 4-Gelenk-Kinematik")
     ax.set_aspect("equal", adjustable="box")  
     ax.set_xlim(-70, 90)
     ax.set_ylim(-70, 90)
 
-    # Marker: p0, p1, p2, p3
+    
     (ln_p0,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
     (ln_p1,) = ax.plot([], [], "bo", ms=8)
     (ln_p2,) = ax.plot([], [], "go", ms=8)
     (ln_p3,) = ax.plot([], [], "ro", ms=8)  # fixed ground pivot
 
-    # Stäbe als Linien
+    
     (bar_01,) = ax.plot([], [], "k-", lw=2)
     (bar_12,) = ax.plot([], [], "k-", lw=2)
     (bar_23,) = ax.plot([], [], "k-", lw=2)
@@ -212,7 +212,7 @@ def animate_4bar_kinematics(points, show_path=False):
         blit=True
     )
 
-    # In GIF speichern
+   
     import tempfile, os, io
     tmpfile = tempfile.NamedTemporaryFile(suffix=".gif", delete=False)
     tmp_filename = tmpfile.name

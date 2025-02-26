@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import streamlit as st
+  
 
 def circle_intersections(c1, r1, c2, r2, last_p2=None):
     """Berechnet die Schnittpunkte zweier Kreise und wählt den kontinuierlichsten Punkt."""

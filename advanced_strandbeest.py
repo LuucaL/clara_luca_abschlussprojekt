@@ -13,6 +13,7 @@ GTOL = 1e-7
 MAX_NFEV = 1000
 
 class MechanismSimulator:
+    
     """
     Diese Klasse kapselt die Logik eines starren Stabsystems, bei dem zwei Punkte fest (Y, Z) sind, 
     X sich auf einem Kreis um Z bewegt und die übrigen Punkte (W, V, T, U, S) so angepasst werden,

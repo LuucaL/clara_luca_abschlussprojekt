@@ -8,6 +8,7 @@ from four_bar import animate_4bar_kinematics
 from crank_rod import animate_crank_kinematics
 from strandbeest import animate_strandbeest
 from advanced_strandbeest import animate_strandbeest_full
+from slider_crank import animate_slider_crank
 
 def save_gif(gif_buffer, filename_gif):
     """Speichert die GIF-Animation unter dem angegebenen Dateinamen."""
@@ -67,11 +68,11 @@ def main():
 
     choice = st.radio(
         "Welches Modell wollen Sie wählen?",
-        ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Freier-Mechanismus", 
+        ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus", 
          "Strandbeest", "Advanced-Strandbeest", "Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen"]
     )
 
-    if choice in ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Freier-Mechanismus"):
+    if choice in ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus"):
         show_path = st.checkbox("Mit Bahnkurve")
 
         sub_choice = st.radio("Standardpunkte oder eigene Punkte?", ("Standardpunkte", "Eigene Punkte"))
@@ -106,6 +107,8 @@ def main():
         animation_func = lambda: animate_4bar_kinematics(points, show_path)
     elif choice == "Kolben-Kurbel-Mechanismus":
         animation_func = lambda: animate_crank_kinematics(points, show_path)
+    elif choice == "Schubkurbel-Mechanismus":
+        animation_func = lambda: animate_slider_crank(show_path)    
     elif choice == "Freier-Mechanismus":
         animation_func = lambda: animate_4bar_kinematics(points, show_path)
     elif choice == "Strandbeest":
@@ -116,6 +119,7 @@ def main():
     
     
     if choice not in ["Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen"]:
+        
      filename_gif = st.text_input("Gib den Dateinamen für die GIF-Animation ein (mit .gif):", "animation.gif")   
      if choice not in ["Strandbeest", "Advanced-Strandbeest"]:  
       filename_traj = st.text_input("Gib den Dateinamen für die Bahnkurve ein (mit .csv):", "bahnkurve.csv")
@@ -123,9 +127,7 @@ def main():
      save_gif_checkbox = st.checkbox("GIF speichern")
      save_traj_checkbox = st.checkbox("Bahnkurve speichern") if choice not in ["Strandbeest", "Advanced-Strandbeest"] else False
     
-    if animation_func and st.button("Simulation starten"):   
-        #filename
-        
+    if animation_func and st.button("Simulation starten"):      
         try:
             
             result = animation_func()
@@ -173,7 +175,8 @@ def main():
                 else:
                     st.error("Die Datei enthält ungültige Daten.")
         else:
-            st.warning("Keine gespeicherten Bahnkurven gefunden.")        
+            st.warning("Keine gespeicherten Bahnkurven gefunden.") 
+                                  
 
 if __name__ == "__main__":
     main()
