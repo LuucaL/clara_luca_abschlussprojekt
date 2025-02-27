@@ -4,13 +4,12 @@ import os
 import csv
 import io
 import matplotlib.pyplot as plt
-from four_bar import animate_4bar_kinematics
 from crank_rod import animate_crank_kinematics
 from strandbeest import animate_strandbeest
 from advanced_strandbeest import animate_strandbeest_full
 from slider_crank import animate_slider_crank
-from four_bar import compute_length_errors, plot_length_errors
 from crank_rod import compute_crank_rod_length_errors, plot_crank_rod_length_errors
+
 
 def save_gif(gif_buffer, filename_gif):
     """Speichert die GIF-Animation unter dem angegebenen Dateinamen."""
@@ -70,21 +69,22 @@ def main():
 
     choice = st.radio(
         "Welches Modell wollen Sie wählen?",
-        ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus", 
+        ["Ebener Mechanismus", "Schubkurbel-Mechanismus", 
          "Strandbeest", "Advanced-Strandbeest", "Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen","Längenfehler-Analyse"]
     )
 
-    if choice in ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus"):
+    if choice in ("Ebener Mechanismus", "Schubkurbel-Mechanismus"):
+        
         show_path = st.checkbox("Mit Bahnkurve")
 
-        sub_choice = st.radio("Standardpunkte oder eigene Punkte?", ("Standardpunkte", "Eigene Punkte"))
+        sub_choice = st.radio("Standardpunkte oder eigene Punkte der Gelenke?", ("Standardpunkte", "Eigene Punkte"))
         if sub_choice == "Eigene Punkte":
             p0_x = st.number_input("p0_x", value=0.0)
             p0_y = st.number_input("p0_y", value=0.0)
             p1_x = st.number_input("p1_x", value=10.0)
             p1_y = st.number_input("p1_y", value=10.0)
-            p2_x = st.number_input("p2_x", value=25.0)
-            p2_y = st.number_input("p2_y", value=5.0)
+            p2_x = st.number_input("p2_x", value=40.0)
+            p2_y = st.number_input("p2_y", value=30.0)
             p3_x = st.number_input("p3_x", value=50.0)
             p3_y = st.number_input("p3_y", value=0.0)
             points = {
@@ -105,9 +105,7 @@ def main():
         points = None  
         
     animation_func = None
-    if choice == "Geschlossenes 4-Gelenk":
-        animation_func = lambda: animate_4bar_kinematics(points, show_path)
-    elif choice == "Kolben-Kurbel-Mechanismus":
+    if choice == "Ebener Mechanismus":
         animation_func = lambda: animate_crank_kinematics(points, show_path)
     elif choice == "Schubkurbel-Mechanismus":
         animation_func = lambda: animate_slider_crank(show_path)    
@@ -116,7 +114,6 @@ def main():
     elif choice == "Advanced-Strandbeest":
         animation_func = lambda: animate_strandbeest_full(np.array([0.0, 0.0]))
         
-    
     
     if choice not in ["Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen", "Längenfehler-Analyse"]:
         
@@ -128,8 +125,7 @@ def main():
      save_traj_checkbox = st.checkbox("Bahnkurve speichern") if choice not in ["Strandbeest", "Advanced-Strandbeest"] else False
     
     if animation_func and st.button("Simulation starten"):      
-        try:
-            
+        try:    
             result = animation_func()
             if result is None:
               st.error("Fehler: Die Simulation konnte nicht durchgeführt werden. Bitte überprüfen Sie die Eingaben.")
@@ -176,22 +172,11 @@ def main():
                     st.error("Die Datei enthält ungültige Daten.")
         else:
             st.warning("Keine gespeicherten Bahnkurven gefunden.") 
+            
+            
+            
     if choice == "Längenfehler-Analyse":
-     model_choice = st.radio(
-        "Welches Modell soll analysiert werden?",
-        ["Viergelenk-Mechanismus", "Kolben-Kurbel-Mechanismus"]
-    )
-     if model_choice == "Viergelenk-Mechanismus":
-        points = {
-            "p0": np.array([0.0, 0.0]),
-            "p1": np.array([10.0, 10.0]),
-            "p2": np.array([40.0, 30.0]),
-            "p3": np.array([50.0, 0.0])
-        }
-        if st.button("Fehler plotten"):
-            fig = plot_length_errors(points)
-            st.pyplot(fig)
-     elif model_choice == "Kolben-Kurbel-Mechanismus":
+    
         points = {
             "p0": np.array([0.0, 0.0]),
             "p1": np.array([10.0, 10.0]),

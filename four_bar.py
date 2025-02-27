@@ -94,7 +94,6 @@ def run_4bar_calculation(points):
     return lengths
 
 
-
 def circle_intersections(c1, r1, c2, r2):
     """
     Berechnet die Schnittpunkte zweier Kreise:
@@ -112,11 +111,9 @@ def circle_intersections(c1, r1, c2, r2):
     if d == 0 and abs(r1 - r2) < 1e-9:
         return []
 
-    # Einfache Geometrie
     a = (r1**2 - r2**2 + d**2) / (2 * d)
     h = np.sqrt(max(r1**2 - a**2, 0.0))  # kann bei float-Fehler minimal negativ sein
 
-    # Mittelpunkt der Sehne
     xm = x1 + a * (x2 - x1) / d
     ym = y1 + a * (y2 - y1) / d
 
@@ -161,7 +158,6 @@ def animate_4bar_kinematics(points, show_path=False):
     if lengths_sorted[0] + lengths_sorted[1] > lengths_sorted[2] + lengths_sorted[3]:
         st.print("WARNUNG: Grashof-Kriterium nicht erfüllt. Evtl. keine vollständige Rotation möglich.")
 
-    # Animation-Parameter
     NUM_FRAMES = 80
     FPS = 10
 
@@ -183,6 +179,9 @@ def animate_4bar_kinematics(points, show_path=False):
     (bar_12,) = ax.plot([], [], "k-", lw=2)
     (bar_23,) = ax.plot([], [], "k-", lw=2)
     (bar_30,) = ax.plot([], [], "k-", lw=2)
+    circle_p1 = plt.Circle((0, 0), L0, color="blue", fill=False, linestyle="-")
+    
+    ax.add_patch(circle_p1)
 
     if show_path:
         (path_line,) = ax.plot([], [], "g--", lw=2)
@@ -201,6 +200,8 @@ def animate_4bar_kinematics(points, show_path=False):
         bar_30.set_data([], [])
         return (ln_p0, ln_p1, ln_p2, ln_p3,
                 bar_01, bar_12, bar_23, bar_30)
+        
+    circle_p1.center = (p0[0], p0[1])    
 
     def update(frame):
         # Drehe p1 um p0
