@@ -9,6 +9,7 @@ from strandbeest import animate_strandbeest
 from advanced_strandbeest import animate_strandbeest_full
 from slider_crank import animate_slider_crank
 from crank_rod import compute_crank_rod_length_errors, plot_crank_rod_length_errors
+from datenblatt import save_mechanism_data
 
 
 def save_gif(gif_buffer, filename_gif):
@@ -123,8 +124,10 @@ def main():
                                     
      save_gif_checkbox = st.checkbox("GIF speichern")
      save_traj_checkbox = st.checkbox("Bahnkurve speichern") if choice not in ["Strandbeest", "Advanced-Strandbeest"] else False
-    
-    if animation_func and st.button("Simulation starten"):      
+     save_data_checkbox = st.checkbox("Stückliste speichern") if choice not in ["Strandbeest", "Advanced-Strandbeest"] else False
+     
+    if animation_func and st.button("Simulation starten"):  
+            
         try:    
             result = animation_func()
             if result is None:
@@ -139,6 +142,9 @@ def main():
 
             if save_traj_checkbox and show_path and (trajectory or trajectory_p1):
               save_trajectory(trajectory, trajectory_p1, filename_traj)
+            
+            if save_data_checkbox:
+                save_mechanism_data(points, filename="mechanism_data.json")  
 
 
         except Exception as e:
@@ -172,8 +178,7 @@ def main():
                     st.error("Die Datei enthält ungültige Daten.")
         else:
             st.warning("Keine gespeicherten Bahnkurven gefunden.") 
-            
-            
+                        
             
     if choice == "Längenfehler-Analyse":
     
