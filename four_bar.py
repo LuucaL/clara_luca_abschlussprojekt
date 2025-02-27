@@ -5,6 +5,47 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import streamlit as st
+
+def compute_length_errors(points, theta_range=np.linspace(0, 360, 180)):
+
+    p0, p3 = points["p0"], points["p3"]
+    L0 = np.linalg.norm(points["p1"] - p0)   # p0->p1 
+    L1 = np.linalg.norm(points["p2"] - points["p1"])  # p1->p2 
+    L2 = np.linalg.norm(points["p2"] - p3)   # p2->p3 
+    L3 = np.linalg.norm(p3 - p0)        # p3->p0 
+    errors = {"L0": [], "L1": [], "L2": [], "L3": []}
+    theta_values = []
+    for theta in theta_range:
+        alpha = np.radians(theta)
+        p1 = np.array([p0[0] + L0 * np.cos(alpha), p0[1] + L0 * np.sin(alpha)])
+        # Berechne p2 durch Kreis-Schnittpunkte:
+        hits = circle_intersections(p1, L1, p3, L2)
+        if not hits:
+            continue  
+        p2 = np.array(hits[0])  
+        # aktuelle Längen
+        curr_L0 = np.linalg.norm(p1 - p0)
+        curr_L1 = np.linalg.norm(p2 - p1)
+        curr_L2 = np.linalg.norm(p2 - p3)
+        curr_L3 = np.linalg.norm(p3 - p0)
+        
+        errors["L0"].append(curr_L0 - L0)
+        errors["L1"].append(curr_L1 - L1)
+        errors["L2"].append(curr_L2 - L2)
+        errors["L3"].append(curr_L3 - L3)
+        theta_values.append(theta)
+    return theta_values, errors
+def plot_length_errors(points):
+    
+    theta_values, errors = compute_length_errors(points)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for link, error_vals in errors.items():
+        ax.plot(theta_values, error_vals, label=f'Fehler {link}')
+    ax.set_xlabel("Theta (Grad)")
+    ax.set_ylabel("Längenfehler")
+    ax.legend()
+    ax.grid()
+    return fig
    
 def build_points():
     # Standard-Punkte mal als Beispiel 

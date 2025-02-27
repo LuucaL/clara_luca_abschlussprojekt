@@ -5,6 +5,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import streamlit as st
+
+def compute_crank_rod_length_errors(points, theta_range=np.linspace(0, 360, 180)):
+    
+    p0 = points["p0"]
+    p1_init = points["p1"]
+    p2_init = points["p2"]
+    p3 = points["p3"]
+    
+    L0 = np.linalg.norm(p1_init - p0)  
+    L1 = np.linalg.norm(p2_init - p1_init)  
+    L2 = np.linalg.norm(p2_init - p3)  
+    errors = {"L0": [], "L1": [], "L2": []}
+    theta_values = []
+    last_p2 = p2_init.copy()
+    for theta in theta_range:
+        alpha = np.radians(theta)
+        p1 = np.array([p0[0] + L0 * np.cos(alpha), p0[1] + L0 * np.sin(alpha)])
+        
+        p2 = circle_intersections(p1, L1, p3, L2, last_p2)
+        if p2 is None:
+            continue  
+        last_p2 = p2
+        
+        curr_L0 = np.linalg.norm(p1 - p0)
+        curr_L1 = np.linalg.norm(p2 - p1)
+        curr_L2 = np.linalg.norm(p2 - p3)
+        
+        errors["L0"].append(curr_L0 - L0)
+        errors["L1"].append(curr_L1 - L1)
+        errors["L2"].append(curr_L2 - L2)
+        theta_values.append(theta)
+    return theta_values, errors
+def plot_crank_rod_length_errors(points):
+    
+    theta_values, errors = compute_crank_rod_length_errors(points)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for link, error_vals in errors.items():
+        ax.plot(theta_values, error_vals, label=f'Fehler {link}')
+    ax.set_xlabel("Theta (Grad)")
+    ax.set_ylabel("Längenfehler")
+    ax.set_title("Längenfehler der Glieder als Funktion von Theta (Kolben-Kurbel-Mechanismus)")
+    ax.legend()
+    ax.grid()
+    return fig
   
 
 def circle_intersections(c1, r1, c2, r2, last_p2=None):

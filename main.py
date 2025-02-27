@@ -9,6 +9,8 @@ from crank_rod import animate_crank_kinematics
 from strandbeest import animate_strandbeest
 from advanced_strandbeest import animate_strandbeest_full
 from slider_crank import animate_slider_crank
+from four_bar import compute_length_errors, plot_length_errors
+from crank_rod import compute_crank_rod_length_errors, plot_crank_rod_length_errors
 
 def save_gif(gif_buffer, filename_gif):
     """Speichert die GIF-Animation unter dem angegebenen Dateinamen."""
@@ -69,7 +71,7 @@ def main():
     choice = st.radio(
         "Welches Modell wollen Sie wählen?",
         ["Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus", 
-         "Strandbeest", "Advanced-Strandbeest", "Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen"]
+         "Strandbeest", "Advanced-Strandbeest", "Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen","Längenfehler-Analyse"]
     )
 
     if choice in ("Geschlossenes 4-Gelenk", "Kolben-Kurbel-Mechanismus", "Schubkurbel-Mechanismus", "Freier-Mechanismus"):
@@ -109,8 +111,6 @@ def main():
         animation_func = lambda: animate_crank_kinematics(points, show_path)
     elif choice == "Schubkurbel-Mechanismus":
         animation_func = lambda: animate_slider_crank(show_path)    
-    elif choice == "Freier-Mechanismus":
-        animation_func = lambda: animate_4bar_kinematics(points, show_path)
     elif choice == "Strandbeest":
         animation_func = lambda: animate_strandbeest(np.array([0.0, 0.0]))
     elif choice == "Advanced-Strandbeest":
@@ -118,7 +118,7 @@ def main():
         
     
     
-    if choice not in ["Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen"]:
+    if choice not in ["Gespeicherte Bahnkurven anzeigen", "Gespeicherte Animationen anzeigen", "Längenfehler-Analyse"]:
         
      filename_gif = st.text_input("Gib den Dateinamen für die GIF-Animation ein (mit .gif):", "animation.gif")   
      if choice not in ["Strandbeest", "Advanced-Strandbeest"]:  
@@ -176,6 +176,31 @@ def main():
                     st.error("Die Datei enthält ungültige Daten.")
         else:
             st.warning("Keine gespeicherten Bahnkurven gefunden.") 
+    if choice == "Längenfehler-Analyse":
+     model_choice = st.radio(
+        "Welches Modell soll analysiert werden?",
+        ["Viergelenk-Mechanismus", "Kolben-Kurbel-Mechanismus"]
+    )
+     if model_choice == "Viergelenk-Mechanismus":
+        points = {
+            "p0": np.array([0.0, 0.0]),
+            "p1": np.array([10.0, 10.0]),
+            "p2": np.array([40.0, 30.0]),
+            "p3": np.array([50.0, 0.0])
+        }
+        if st.button("Fehler plotten"):
+            fig = plot_length_errors(points)
+            st.pyplot(fig)
+     elif model_choice == "Kolben-Kurbel-Mechanismus":
+        points = {
+            "p0": np.array([0.0, 0.0]),
+            "p1": np.array([10.0, 10.0]),
+            "p2": np.array([40.0, 30.0]),
+            "p3": np.array([50.0, 0.0])
+        }
+        if st.button("Fehler plotten"):
+            fig = plot_crank_rod_length_errors(points)
+            st.pyplot(fig)        
                                   
 
 if __name__ == "__main__":
