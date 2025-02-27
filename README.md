@@ -9,6 +9,10 @@
 - Vemv aktivieren '.\.venv\Skripts\activate' Windows
 - Streamlit starten 'python -m streamlit run main.py'
 
+## Streamlit App
+
+- https://claralucaabschlussprojekt.streamlit.app/
+
 ## Projektdokumentation
 
 Die entwickelte Software bietet die Möglichkeit verschiedene ebene Mechanismen zu animieren und die Bahnkurven ihrer Gelenke darzustellen. Die Bahnkurven können gespeichert und wieder zur Darstellung geöffnet werden. Der Benutzer hat zwei verschiedene Wahlmöglichkeiten mit unterschiedlichen Konfigurationen. Die ebenen Mechanismen bestehen aus einer Kurbel, die die anderen Stäbe antreibt. Zwei Gelenke sind dabei starr, die anderen Gelenke sind in ihren Freiheitsgraden nicht eingeschränkt. Die Schubkurbel ist ein Mechanismus, bei dem ein Punkt nur ein Freiheitsgrad besitzt. 
@@ -22,3 +26,7 @@ Die Längenfehler der Glieder je nach Winkel Theta kann für die ebenen Modelle 
 Desweiteren können die Animationen als .gif gespeichert werden und wieder geöffnet werden. Der Dateiname kann selbst bestimmt werden. 
 
 Die Anzahl der Gelenke, der Glieder und ihre Längen können ausgegeben werden und als Datei gespeichert werden. So könnten sie z.B. nachgebaut oder weiter berechnet werden. 
+
+ ## UML Diagramm
+
+![UML-Diagramm](files/graphviz.png)
